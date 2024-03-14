@@ -16,7 +16,7 @@ class Plugin(monitools.Plugin):
 
     # single_valued = False
     # If the above is uncommented, doesn't add args.warn (-w) and args.crit
-    (-c) automatically
+    # (-c) automatically
 
     def configure_parser(self, parser):
         parser.add_argument('arg', type=float, help='The value to check')
@@ -24,10 +24,10 @@ class Plugin(monitools.Plugin):
 
     # Finally: define some checks
     # The Plugin automatically finds `check`, and any method starting with
-    `check_`, but you can override `all_checks` to change this
+    # `check_`, but you can override `all_checks` to change this
     def check(self, args):
         return Info(
-            # status = Status.OK  # Without this, inferred from the Perf data
+            # status=Status.OK,  # Without this, inferred from the Perf data
             head='The arg is {}{}'.format(args.arg, args.unit),
             perf=Perf('arg', args.arg, args.unit, args.warn, args.crit),
         )

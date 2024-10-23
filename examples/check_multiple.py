@@ -11,5 +11,8 @@ class Plugin(monitool.Plugin):
     def check_c(self, args):
         return Info(head='Check c passed as well')
 
+    def check_d(self, args):
+        return Info(head='And finally check d passes too')
+
 if __name__ == '__main__':
     Plugin().main()

@@ -2,7 +2,7 @@
 monitool -- A monitoring plugin framework for Nagios, Icinga, and so forth
 '''
 
-__version__ = '0.1'
+__version__ = '0.1.1'
 
 from argparse import ArgumentParser
 from enum import Enum
@@ -14,6 +14,9 @@ import traceback
 # An opinionated ordering as to which status is "more important"
 # As of now, CRITICAL > UNKNOWN > WARNING > OK
 STATUS_ORDERING = {k: v for k, v in enumerate([0, 1, 3, 2])}
+
+# Suffixes, by default, applied to headlines corresponding to certain statuses
+STATUS_SUFFIX = {0: '', 1: '(!)', 2: '(!!)', 3: '(?)'}
 
 @total_ordering
 class Status(Enum):
@@ -37,6 +40,15 @@ class Status(Enum):
     def __lt__(self, other):
         return isinstance(other, Status) and \
                 STATUS_ORDERING[self.value] < STATUS_ORDERING[other.value]
+
+    def suffix(self):
+        '''
+        Get the "suffix" of this Status. See Info's constructor.
+
+        This is simply an index into STATUS_SUFFIX, which can be used to assign
+        different suffixes globally.
+        '''
+        return STATUS_SUFFIX[self.value]
 
 class Range:
     '''
@@ -128,6 +140,12 @@ class Range:
                 pfx, lower, delim, upper,
         )
 
+# Convenient constants for Ranges:
+Range.NOWHERE = Range()  # Never contains any value
+Range.EVERYWHERE = Range(interior=True)  # Contains every value
+Range.NONNEGATIVE = Range(0, interior=True)  # Contains every non-negative value
+Range.UNIT = Range(0, 1, interior=True)  # Contains [0, 1]
+
 class Perf:
     '''
     A single performance metric. Constructor arguments are largely as for the
@@ -201,14 +219,22 @@ class Info:
     meta is a metadata dictionary. This isn't rendered in plugin output, but is
     preserved; its main intent is to pass information between checks, or to
     check middleware that might transform the results.
+
+    suffix may be a string, or None. If a string, it is appended to head; if
+    None, a suffix is derived from the status (as given or computed) is used.
+    See Status.suffix for details. Once combined, this acts as if head
+    contained this string all along for the purposes of combination; see
+    combine.
     '''
-    def __init__(self, status=None, head='', extended=(), perf=(), meta={}):
+    def __init__(self, status=None, head='', extended=(), perf=(), meta={}, suffix=None):
         if isinstance(perf, Perf):
             perf = (perf,)
         if status is None:
             status = max((p.status for p in perf), default=Status.OK)
+        if suffix is None:
+            suffix = status.suffix()
         self.status, self.head, self.extended, self.perf, self.meta = \
-                status, head, extended, perf, meta
+                status, head + suffix, extended, perf, meta
 
     @classmethod
     def combine(cls, *each):
@@ -233,6 +259,7 @@ class Info:
                 extended=extended,
                 perf=perf,
                 meta=meta,
+                suffix='',
         )
 
     def __or__(self, other):
@@ -251,12 +278,12 @@ class Info:
         Renders this Info as a valid Nagios plugin output.
         '''
         perf_sep = ' | ' if self.perf else ''
-        return '{}: {}{}{}\n{}'.format(
+        return '{}: {}{}{}{}'.format(
             self.status.name,
             self.head,
             perf_sep,
             ' '.join(map(str, self.perf)),
-            '\n'.join(self.extended),
+            '\n' + '\n'.join(self.extended) if self.extended else '',
         )
 
 class Plugin:
